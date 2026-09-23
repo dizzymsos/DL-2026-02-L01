@@ -4,20 +4,13 @@ import numpy as np
 import torch
 
 
+#Convierte clases enteras a umbrales binarios acumulativos.
 def labels_to_levels(labels: torch.Tensor, num_classes: int) -> torch.Tensor:
-    """
-    TODO(alumno):
-    Convierte clases enteras a umbrales binarios acumulativos.
 
-    Ejemplo:
-    Si num_classes = 5 y la etiqueta es 2, el vector debe ser [1, 1, 0, 0].
-
-    Formas:
-    - labels: (batch_size,)
-    - salida: (batch_size, num_classes - 1)
-    """
-
-    raise NotImplementedError("TODO: implementar labels_to_levels().")
+    thresholds = torch.arange(num_classes - 1, device=labels.device)
+    levels = (labels.unsqueeze(1) > thresholds).float()
+    
+    return levels
 
 
 def coral_loss(
@@ -26,17 +19,23 @@ def coral_loss(
     num_classes: int,
     class_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """
-    TODO(alumno):
-    BCE con logits sobre los K-1 umbrales ordinales.
+    
+    # convierte las etiquetas enteras en los K-1 umbrales binarios (0/1)
+    levels = labels_to_levels(labels, num_classes)
 
-    Formas:
-    - logits: (batch_size, num_classes - 1)
-    - labels: (batch_size,)
-    - class_weights: (num_classes,) o None
-    """
+    # BCE elemento a elemento, sin reducir todavía: (batch_size, num_classes-1)
+    losses = torch.nn.functional.binary_cross_entropy_with_logits(
+        logits, levels, reduction="none")
 
-    raise NotImplementedError("TODO: implementar coral_loss().")
+    
+    if class_weights is not None:
+        # peso por observacion, segun su clase real: (batch_size,)
+        sample_weights = class_weights[labels]
+        # aplicarlo a cada fila (se expande a las K-1 columnas)
+        losses = losses * sample_weights.unsqueeze(1)
+
+    return losses.mean()
+
 
 
 def effective_number_weights(
@@ -44,17 +43,32 @@ def effective_number_weights(
     num_classes: int,
     beta: float = 0.99,
 ) -> torch.Tensor:
-    """
-    TODO(alumno):
-    Pesos por numero efectivo de muestras:
 
-        w_c = (1 - beta) / (1 - beta ** n_c)
+    # cuantas observaciones hay de cada clase
+    counts = np.array(
+        [np.sum(labels == c) for c in range(num_classes)], dtype=np.float64
+    )
+    counts = np.maximum(counts, 1)  # evita division por 0 si una clase no aparece
 
-    Normalizar los pesos para que su media sea 1.
+    # numero efectivo de muestras por clase
+    effective_num = 1.0 - np.power(beta, counts)
+    weights = (1.0 - beta) / effective_num
 
-    Formas:
-    - labels: (N,)
-    - salida: (num_classes,)
-    """
+    # normalizar para que la media de los pesos sea 1
+    weights = weights / weights.mean()
 
-    raise NotImplementedError("TODO: implementar effective_number_weights().")
+    return torch.tensor(weights, dtype=torch.float32)
+    
+"""
+Pesos por numero efectivo de muestras:
+
+    w_c = (1 - beta) / (1 - beta ** n_c)
+
+Normalizar los pesos para que su media sea 1.
+
+Formas:
+- labels: (N,)
+- salida: (num_classes,)
+"""
+
+

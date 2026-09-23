@@ -41,7 +41,6 @@ class ShallowMultiClassNet(nn.Module):
 
 class CoralLayer(nn.Module):
     """
-    TODO(alumno):
     Capa de salida CORAL.
 
     Debe producir K-1 logits acumulativos a partir de un vector de
@@ -57,19 +56,26 @@ class CoralLayer(nn.Module):
     - x: (batch_size, input_size)
     - salida: (batch_size, num_classes - 1)
     """
+    
 
     def __init__(self, input_size: int, num_classes: int) -> None:
         super().__init__()
         self.input_size = input_size
         self.num_classes = num_classes
 
+        self.score = nn.Linear(input_size, 1)
+        self.bias_deltas = nn.Parameter(torch.zeros(num_classes - 1)) 
+
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: implementar CoralLayer.forward().")
+        s = self.score(inputs)
+        ordered_biases = torch.cumsum(torch.nn.functional.softplus(self.bias_deltas), dim=0)
+        logits = s + ordered_biases
+        return logits
+    
 
 
 class MLPCoral(nn.Module):
     """
-    TODO(alumno):
     MLP ordinal poco profunda con cabeza CORAL.
 
     Arquitectura sugerida:
@@ -91,5 +97,24 @@ class MLPCoral(nn.Module):
         self.num_classes = num_classes
         self.dropout = dropout
 
+        self.fc1 = nn.Linear(num_features, 32)
+        self.bn1 = nn.BatchNorm1d(32)
+        self.relu1 = nn.ReLU()
+        self.drop = nn.Dropout(dropout)
+
+        self.fc2 = nn.Linear(32, 16)
+        self.relu2 = nn.ReLU()
+
+        self.coral = CoralLayer(16, num_classes)
+
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("TODO: implementar MLPCoral.forward().")
+        x = self.fc1(inputs)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.drop(x)
+
+        x = self.fc2(x)
+        x = self.relu2(x)
+
+        logits = self.coral(x)
+        return logits

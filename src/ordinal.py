@@ -8,17 +8,13 @@ def logits_to_ordinal_predictions(
     logits: torch.Tensor,
     threshold: float = 0.5,
 ) -> torch.Tensor:
-    """
-    TODO(alumno):
-    Convierte logits CORAL en una clase entera.
 
-    Pista:
-    aplicar sigmoide, contar cuantos umbrales superan threshold
-    y devolver ese conteo como y_hat.
+    # convierte logits CORAL a probabilidades: (batch_size, num_classes-1)
+    probs = torch.sigmoid(logits)
 
-    Formas:
-    - logits: (batch_size, K-1)
-    - salida: (batch_size,)
-    """
+    # True/False segun si supera el umbral, luego se suma como enteros
+    # cuenta cuantos "si" seguidos hay -> esa es la clase predicha
+    predictions = (probs > threshold).sum(dim=1)
 
-    raise NotImplementedError("TODO: implementar logits_to_ordinal_predictions().")
+    return predictions
+

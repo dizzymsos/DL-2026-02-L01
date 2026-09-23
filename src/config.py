@@ -77,3 +77,12 @@ HYPERPARAMETER_GRID = [
         "weight_decay": 1e-4,
     },
 ]
+
+DEFAULT_BETA = 0.99
+
+# Para CORAL: mismo grid de arriba, pero probando tambien distintos beta
+CORAL_HYPERPARAMETER_GRID = [
+    {**cfg, "beta": beta}
+    for cfg in HYPERPARAMETER_GRID
+    for beta in (0.9, 0.99, 0.999)
+]
