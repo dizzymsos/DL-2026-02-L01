@@ -706,6 +706,8 @@ def main() -> None:
 
     rows = []
     confusion_by_target = {}
+    algo_label = args.algorithm + ("_pesos" if args.use_class_weights else "")
+
     for target_name in target_names:
         outer_folds, inner_folds = folds_for_target(
             target_name,
@@ -733,8 +735,8 @@ def main() -> None:
             use_class_weights=args.use_class_weights,
         )
         print_experiment_results(results)
-        rows.append(experiment_to_row(results, algorithm=args.algorithm))
-        confusion_by_target[f"{target_name}_{args.algorithm}"] = results[
+        rows.append(experiment_to_row(results, algorithm=algo_label))
+        confusion_by_target[f"{target_name}_{algo_label}"] = results[
             "last_fold_confusion"
         ]
 
